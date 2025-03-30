@@ -7,16 +7,24 @@ import { fetchRecommendations } from "@/lib/api";
 import { BookOpen, Search, Sparkles, Loader2, ChevronRight, Stars, Bookmark, Heart } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+interface BookRecommendation {
+  title: string;
+  description: string;
+  thumbnail?: string;
+}
+
 export default function BookRecommendationApp() {
   const [query, setQuery] = useState("");
-  const [response, setResponse] = useState<string[]>([]);
+  const [recommendations, setRecommendations] = useState<{
+    text: string;
+    books: BookRecommendation[];
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<"recommendations" | "saved">("recommendations");
-  const [savedBooks, setSavedBooks] = useState<string[]>([]);
+  const [savedBooks, setSavedBooks] = useState<BookRecommendation[]>([]);
   const [toastMessage, setToastMessage] = useState(""); 
   const formRef = useRef<HTMLFormElement>(null);
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,14 +35,14 @@ export default function BookRecommendationApp() {
   
     setError("");
     setIsLoading(true);
-    setResponse([]);
+    setRecommendations(null);
   
     try {
       const res = await fetchRecommendations(query);
-      const recommendations = res?.recommendations?.split("\n").filter(Boolean) || [
-        "No specific recommendations found. Try being more descriptive!",
-      ];
-      setResponse(recommendations);
+      setRecommendations({
+        text: res.recommendations,
+        books: res.books
+      });
       setToastMessage("✅ Recommendations loaded!");
     } catch (err) {
       console.error("Fetch error:", err);
@@ -46,26 +54,42 @@ export default function BookRecommendationApp() {
     }
   };
 
-  // Add this UI somewhere in your return():
-  {toastMessage && (
-    <div className="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in">
-      {toastMessage}
-    </div>
-  )}
-
-  const saveRecommendation = (book: string) => {
-    if (savedBooks.includes(book)) {
-      setSavedBooks(savedBooks.filter((b) => b !== book));
+  const saveRecommendation = (book: BookRecommendation) => {
+    if (savedBooks.some(b => b.title === book.title)) {
+      setSavedBooks(savedBooks.filter(b => b.title !== book.title));
       setToastMessage("Removed from saved books");
     } else {
       setSavedBooks([...savedBooks, book]);
       setToastMessage("Book saved to your collection");
     }
-    setTimeout(() => setToastMessage(""), 3000); // Clear message after 3 seconds
+    setTimeout(() => setToastMessage(""), 3000);
+  };
+
+  // Parse the recommendations text into structured data
+  const parseRecommendations = (text: string) => {
+    const recommendations = [];
+    const pattern = /TITLE:\s*(.+?)\s*DESCRIPTION:\s*(.+?)(?=\nTITLE:|$)/gs;
+    let match;
+    
+    while ((match = pattern.exec(text)) !== null) {
+      recommendations.push({
+        title: match[1].trim(),
+        description: match[2].trim(),
+      });
+    }
+    
+    return recommendations;
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-blue-50 py-12 px-4 sm:px-6 lg:px-8">
+      {/* Toast Message */}
+      {toastMessage && (
+        <div className="fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg animate-fade-in">
+          {toastMessage}
+        </div>
+      )}
+
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <motion.div
@@ -77,7 +101,7 @@ export default function BookRecommendationApp() {
           <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-white shadow-lg mb-4">
             <BookOpen className="h-10 w-10 text-indigo-600" />
           </div>
-          <h1 className="text-4xl font-bold  sm:text-5xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
+          <h1 className="text-4xl font-bold sm:text-5xl bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
             BookNexus AI
           </h1>
           <p className="mt-4 text-xl text-gray-600 max-w-lg mx-auto">
@@ -139,7 +163,7 @@ export default function BookRecommendationApp() {
                         id="query"
                         type="text"
                         className="block w-full pl-10 pr-12 py-3 text-base border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg"
-                        placeholder=" e.g., 'A mystery novel set in Paris'"
+                        placeholder="e.g., 'A mystery novel set in Paris'"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         disabled={isLoading}
@@ -169,7 +193,7 @@ export default function BookRecommendationApp() {
 
                 {/* Recommendations */}
                 <AnimatePresence>
-                  {response.length > 0 && (
+                  {recommendations && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
@@ -181,28 +205,69 @@ export default function BookRecommendationApp() {
                         <Stars className="h-5 w-5 text-yellow-500" />
                         Your Recommendations
                       </h2>
-                      <div className="space-y-4">
-                        {response.map((book, index) => (
-                          <motion.div
-                            key={index}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: index * 0.1 }}
-                            className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex justify-between items-start"
-                          >
-                            <p className="text-gray-800">{book}</p>
-                            <button
-                              onClick={() => saveRecommendation(book)}
-                              className="text-gray-400 hover:text-red-500 transition-colors"
+                      
+                      <div className="space-y-6">
+                        {parseRecommendations(recommendations.text).map((rec, idx) => {
+                          // Find matching book data with thumbnail
+                          const bookData = recommendations.books.find(
+                            (b) => b.title === rec.title
+                          );
+                          
+                          return (
+                            <motion.div
+                              key={idx}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: idx * 0.1 }}
+                              className="bg-gray-50 p-5 rounded-xl border border-gray-200 hover:shadow-md transition-shadow"
                             >
-                              <Heart
-                                className={`h-5 w-5 ${
-                                  savedBooks.includes(book) ? "fill-red-500 text-red-500" : ""
-                                }`}
-                              />
-                            </button>
-                          </motion.div>
-                        ))}
+                              <div className="flex gap-5">
+                                {/* Thumbnail */}
+                                <div className="flex-shrink-0">
+                                  <img
+                                    src={bookData?.thumbnail || "/book-placeholder.jpg"}
+                                    alt={rec.title}
+                                    className="w-24 h-36 object-cover rounded-lg shadow-sm"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = "/book-placeholder.jpg";
+                                    }}
+                                  />
+                                </div>
+                                
+                                {/* Text content */}
+                                <div className="flex-1">
+                                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                                    {rec.title}
+                                  </h3>
+                                  <p className="text-gray-700 whitespace-pre-line mb-3">
+                                    {rec.description}
+                                  </p>
+                                  <button
+                                    onClick={() => saveRecommendation({
+                                      title: rec.title,
+                                      description: rec.description,
+                                      thumbnail: bookData?.thumbnail
+                                    })}
+                                    className="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                                  >
+                                    <Heart
+                                      className={`h-5 w-5 ${
+                                        savedBooks.some(b => b.title === rec.title) 
+                                          ? "fill-red-500 text-red-500" 
+                                          : ""
+                                      }`}
+                                    />
+                                    <span className="text-sm">
+                                      {savedBooks.some(b => b.title === rec.title) 
+                                        ? "Saved" 
+                                        : "Save to collection"}
+                                    </span>
+                                  </button>
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
                       </div>
                     </motion.div>
                   )}
@@ -215,20 +280,45 @@ export default function BookRecommendationApp() {
                   Saved Books
                 </h2>
                 {savedBooks.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {savedBooks.map((book, index) => (
-                      <div
+                      <motion.div
                         key={index}
-                        className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex justify-between items-start"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="bg-gray-50 p-5 rounded-xl border border-gray-200 hover:shadow-md transition-shadow"
                       >
-                        <p className="text-gray-800">{book}</p>
-                        <button
-                          onClick={() => saveRecommendation(book)}
-                          className="text-red-500 hover:text-red-600 transition-colors"
-                        >
-                          <Heart className="h-5 w-5 fill-red-500" />
-                        </button>
-                      </div>
+                        <div className="flex gap-5">
+                          {book.thumbnail && (
+                            <div className="flex-shrink-0">
+                              <img
+                                src={book.thumbnail}
+                                alt={book.title}
+                                className="w-24 h-36 object-cover rounded-lg shadow-sm"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = "/book-placeholder.jpg";
+                                }}
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">
+                              {book.title}
+                            </h3>
+                            <p className="text-gray-700 mb-3">
+                              {book.description}
+                            </p>
+                            <button
+                              onClick={() => saveRecommendation(book)}
+                              className="text-red-500 hover:text-red-600 transition-colors flex items-center gap-1"
+                            >
+                              <Heart className="h-5 w-5 fill-red-500" />
+                              <span className="text-sm">Remove</span>
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
                     ))}
                   </div>
                 ) : (
@@ -252,7 +342,7 @@ export default function BookRecommendationApp() {
           transition={{ delay: 0.5 }}
           className="mt-8 text-center text-sm text-gray-500"
         >
-          <p>© {new Date().getFullYear()} BookGenius AI · Your reading journey starts here.</p>
+          <p>© {new Date().getFullYear()} BookNexus AI · Your reading journey starts here.</p>
         </motion.div>
       </div>
     </div>

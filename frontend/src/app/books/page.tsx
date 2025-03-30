@@ -6,9 +6,10 @@ import { motion } from "framer-motion";
 import { useEffect, useState, useRef, useCallback } from "react";
 import Papa from "papaparse";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Star, BookOpen } from "lucide-react";
+import { Star, BookOpen, Search } from "lucide-react";
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface Book {
   id: number;
@@ -19,9 +20,9 @@ interface Book {
 }
 
 export default function BooksPage() {
+  const router = useRouter(); // Now using the correct router
   const [books, setBooks] = useState<Book[]>([]);
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -53,7 +54,6 @@ export default function BooksPage() {
             rating: Math.floor(Math.random() * 3) + 3,
           }));
 
-          // For demo purposes, we'll simulate pagination by slicing the array
           const itemsPerPage = 20;
           const startIndex = (page - 1) * itemsPerPage;
           const endIndex = startIndex + itemsPerPage;
@@ -71,18 +71,6 @@ export default function BooksPage() {
       setIsLoading(false);
     }
   }, [page, hasMore]);
-
-  // Filter books based on search term
-  useEffect(() => {
-    const filtered = books.filter(
-      (book) =>
-        book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        book.author.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredBooks(filtered);
-  }, [searchTerm, books]);
-
-  // Infinite scroll observer
   useEffect(() => {
     if (isLoading) return;
     
@@ -139,26 +127,20 @@ export default function BooksPage() {
           className="mb-8 max-w-2xl mx-auto"
         >
           <div className="relative">
-            <Input
-              type="text"
-              placeholder="Search by title or author..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 pr-4 py-6 text-lg rounded-full shadow-sm"
-            />
-            {searchTerm && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSearchTerm("")}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2"
-              >
-                Clear
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              onClick={() => router.push('/chatbot')}
+              className="w-full pl-12 pr-4 py-6 text-lg rounded-full shadow-sm hover:bg-indigo-50 border-indigo-200 text-gray-600 justify-start"
+            >
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+                <Search className="h-5 w-5 text-indigo-500" />
+              </div>
+              <span className="ml-2">Wanna search something? Ask our chatbot!</span>
+            </Button>
           </div>
         </motion.div>
 
+        {/* Rest of your component remains the same */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
           {filteredBooks.map((book) => (
             <motion.div
@@ -169,35 +151,36 @@ export default function BooksPage() {
               viewport={{ once: true }}
               whileHover={{ scale: 1.03 }}
             >
-              <Card className="h-full flex flex-col overflow-hidden border border-gray-200 hover:border-gray-300 transition-all duration-300 shadow-sm hover:shadow-md">
-                <div className="relative">
-                  <img
-                    src={book.cover || "/book-placeholder.jpg"}
-                    alt={book.title}
-                    className="w-full h-64 object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/book-placeholder.jpg";
-                    }}
-                  />
-                  <div className="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-1 rounded-full flex items-center text-sm font-medium">
-                    <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 mr-1" />
-                    {book.rating?.toFixed(1)}
-                  </div>
-                </div>
-                <CardHeader className="flex-grow">
-                  <CardTitle className="text-lg line-clamp-2">{book.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 text-sm">by {book.author}</p>
-                </CardContent>
-                <CardFooter className="flex justify-between items-center">
-                  <Button variant="outline" size="sm">
-                    <BookOpen className="mr-2 h-4 w-4" />
-                    Details
-                  </Button>
-                  <Button size="sm">Add to Shelf</Button>
-                </CardFooter>
-              </Card>
+                <button 
+                className="text-lg w-full h-full"
+                onClick={() => router.push(`/books/${book.id}`)}
+                >
+                    <Card className="h-full flex flex-col overflow-hidden border border-gray-200 hover:border-gray-300 transition-all duration-300 shadow-sm hover:shadow-md">
+                    <div className="relative">
+                    <img
+                        src={book.cover}
+                        alt={book.title}
+                        className="w-full h-64 object-cover"
+                        onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/book-placeholder.jpg";
+                        }}
+                    />
+                    <div className="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-1 rounded-full flex items-center text-sm font-medium">
+                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 mr-1" />
+                        {book.rating?.toFixed(1)}
+                    </div>
+                    </div>
+                    <CardHeader className="flex-grow">
+                    <CardTitle className="text-lg line-clamp-2">{book.title}</CardTitle>
+                    </CardHeader>
+                    <CardFooter className="flex justify-between items-center">
+                    <Button variant="outline" size="sm">
+                        <BookOpen className="mr-2 h-4 w-4" />
+                        Details
+                    </Button>
+                    </CardFooter>
+                </Card>
+                </button>              
             </motion.div>
           ))}
         </div>
@@ -213,29 +196,6 @@ export default function BooksPage() {
                 </div>
               </Card>
             ))}
-          </div>
-        )}
-
-        {!isLoading && filteredBooks.length === 0 && (
-          <div className="text-center py-16">
-            <div className="mx-auto w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-              <BookOpen className="h-12 w-12 text-gray-400" />
-            </div>
-            <h3 className="text-xl font-medium text-gray-900 mb-2">No books found</h3>
-            <p className="text-gray-600">
-              {searchTerm
-                ? `No results for "${searchTerm}". Try another search.`
-                : "Our bookshelf seems empty at the moment."}
-            </p>
-            {searchTerm && (
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => setSearchTerm("")}
-              >
-                Clear search
-              </Button>
-            )}
           </div>
         )}
 

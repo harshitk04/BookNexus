@@ -20,4 +20,16 @@ export async function fetchRecommendations(query: string) {
     throw error; // Propagate the error to be handled by the component
   }
 }
+
+
+
+export async function fetchBookDetails(bookId: string) {
+  const response = await fetch(`/api/books/${bookId}`);
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch book details');
+  }
+
+  return response.json();
+}
   

@@ -52,18 +52,29 @@ def retrieve_semantic_recommendation(query: str, top_k: int = 5) -> pd.DataFrame
 
 
 # Function to format books for LLM
-def retrieve_books_for_llm(query:str,top_k:int=3):
-    a = retrieve_semantic_recommendation(query,top_k)
+def retrieve_books_for_llm(query: str, top_k: int = 5):
+    a = retrieve_semantic_recommendation(query, top_k)
     books_list = []
     for i in range(len(a)):
-        books_list.append("TITLE OF THE BOOKS IS:" + a.iloc[i]["title"] + ",AND NOW ITS THE DESCRIPTION : " + a.iloc[i]["tagged_description"])
-    
+        book_info = {
+            "title": a.iloc[i]["title"],
+            "description": a.iloc[i]["tagged_description"],
+            "thumbnail": a.iloc[i]["thumbnail"]  # Add thumbnail URL
+        }
+        books_list.append(book_info)
     return books_list
 
 
 # Function to generate response using LLM
 def generate_response(query: str):
     retrieved_books = retrieve_books_for_llm(query, top_k=5)
+    
+    # Prepare text for LLM
+    books_text = "\n\n".join([
+        f"TITLE OF THE BOOK IS: {book['title']}, "
+        f"AND NOW ITS THE DESCRIPTION: {book['description']}"
+        for book in retrieved_books
+    ])
 
     prompt = PromptTemplate.from_template("""
     You are a knowledgeable and friendly book recommendation assistant. 
@@ -71,28 +82,32 @@ def generate_response(query: str):
     Be like a bookworm—give users the experience of talking to a fellow book lover. 
     Do not provide a link to purchase.
 
-
     **User Query:** {query}
     
     **Available Book Information:**
     **RECOMMENDED BOOKS**
     {retrieved_books}
-    Strictly tell the user the title of the book and the description of the book.
-    but also be creative in your recommendations dont print isbn number and make the description unique through your style making it more attractive and unique.
     
-    At the last the format should be like this:
-    TITLE OF THE BOOKS IS:
-    DESCRIPTION OF THE BOOKS:
+    Strictly tell the user the title of the book and the description of the book. 
+    Be creative in your recommendations - don't print ISBN numbers and make the description unique through your style.
+    
+    The format should be strictly like this only:
+    TITLE: [book title]
+    DESCRIPTION: [your creative description] Strictly be creative like a bookworm
     """)
 
     chain = prompt | llm
 
     response = chain.invoke({
-        "retrieved_books": retrieved_books,
+        "retrieved_books": books_text,
         "query": query
     })
     
-    return response.content
+    # Return both the text response and book metadata including thumbnails
+    return {
+        "text_response": response.content,
+        "books": retrieved_books  # This includes titles, descriptions, and thumbnails
+    }
 
 import re
 
@@ -113,5 +128,45 @@ app.add_middleware(
 @app.post("/recommend-books")
 def recommend_books(request: QueryRequest):
     response = generate_response(request.query)
-    formatted_response = clean_text(response)    
-    return {"recommendations": response}
+    formatted_text = clean_text(response["text_response"])
+    
+    return {
+        "recommendations": formatted_text,
+        "books": [
+            {
+                "title": book["title"],
+                "thumbnail": book["thumbnail"],
+                "original_description": book["description"]
+            }
+            for book in response["books"]
+        ]
+    }
+
+
+@app.post("/generate-description")
+def generate_description(request: QueryRequest):
+    description = request.query
+    
+    prompt = PromptTemplate.from_template("""
+    Rewrite the following book description to make it more captivating and vivid, 
+    while preserving the original meaning. Use a {style} style and {tone} tone. Enhance it significantly:
+    Original Description:
+    {description}
+    
+    Enhanced Description:
+    """)
+
+
+    chain = prompt | llm
+
+    response = chain.invoke({
+        "description": description,
+        "style": "descriptive", 
+        "tone": "poetic"        
+    })
+    
+    formatted_text = clean_text(response.content)
+
+    return {
+        "enhanced": formatted_text
+    }
