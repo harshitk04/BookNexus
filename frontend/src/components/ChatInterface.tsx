@@ -18,33 +18,31 @@ export default function BookRecommendationApp() {
   const formRef = useRef<HTMLFormElement>(null);
 
 
-  
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) {
       setError("Please describe what you're looking for");
       return;
     }
-
+  
     setError("");
     setIsLoading(true);
     setResponse([]);
-
+  
     try {
       const res = await fetchRecommendations(query);
       const recommendations = res?.recommendations?.split("\n").filter(Boolean) || [
         "No specific recommendations found. Try being more descriptive!",
       ];
       setResponse(recommendations);
-      setToastMessage("✅ Recommendations loaded!"); // Show success message
+      setToastMessage("✅ Recommendations loaded!");
     } catch (err) {
       console.error("Fetch error:", err);
       setError("Failed to get recommendations. Please try again.");
-      setToastMessage("❌ Error fetching recommendations"); // Show error message
+      setToastMessage("❌ Error fetching recommendations");
     } finally {
       setIsLoading(false);
-      setTimeout(() => setToastMessage(""), 3000); // Auto-hide after 3s
+      setTimeout(() => setToastMessage(""), 3000);
     }
   };
 
@@ -136,13 +134,12 @@ export default function BookRecommendationApp() {
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search className="h-5 w-5 text-gray-400" />
                       </div>
                       <Input
                         id="query"
                         type="text"
                         className="block w-full pl-10 pr-12 py-3 text-base border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-lg"
-                        placeholder="         e.g., 'A mystery novel set in Paris'"
+                        placeholder=" e.g., 'A mystery novel set in Paris'"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         disabled={isLoading}

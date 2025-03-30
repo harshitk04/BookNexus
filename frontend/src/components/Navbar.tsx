@@ -5,7 +5,7 @@ export default function Navbar() {
     <nav className="bg-white shadow-md py-4 px-6 flex justify-between items-center">
       <h1 className="text-2xl font-bold">📖 BookNexus</h1>
       <div className="space-x-4">
-        <Link href="/">
+        <Link href="/books">
           <span className="text-blue-500 cursor-pointer">Home</span>
         </Link>
         <Link href="/chatbot">
