@@ -15,9 +15,8 @@ BookNexus is an advanced AI-driven book recommendation platform that helps users
 ✅ **Modern UI/UX** – Enjoy a seamless browsing experience with our sleek, responsive, and visually appealing design. From intuitive navigation to smooth animations, every detail is crafted to make your book discovery journey enjoyable.    
 ---
 
-## VIDEO
-<div style="padding:75% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/1071146810?badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" style="position:absolute;top:0;left:0;width:100%;height:100%;" title="Screen Recording 2025-03-31 at 11.07.26 PM"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script>
-
+## VIDEO (Go through the video link to experience it)
+https://vimeo.com/1071146810?share=copy#t=0  
 
 ## 🛠️ Tech Stack
 
