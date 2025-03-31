@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import Navbar from '@/components/Navbar';
 import { getBookById } from '@/lib/book';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface Book {
   id: number;
@@ -17,12 +18,24 @@ interface Book {
   genres?: string[];
 }
 
+interface SimilarBook {
+  title: string;
+  author: string;
+  cover: string;
+  thumbnail: string;
+  description: string;
+  rating?: number;
+}
+
 export default function BookDetailsPage({ params }: { params: { bookId: string } }) {
+    const router = useRouter(); // Now using the correct router
   const [book, setBook] = useState<Book | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [enhancedDesc, setEnhancedDesc] = useState<string | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [showEnhanced, setShowEnhanced] = useState(false);
+  const [similarBooks, setSimilarBooks] = useState<SimilarBook[]>([]);
+  const [isLoadingSimilar, setIsLoadingSimilar] = useState(false);
 
   const handleEnhanceDescription = async () => {
     if (!book) return;
@@ -49,6 +62,29 @@ export default function BookDetailsPage({ params }: { params: { bookId: string }
     }
   };
 
+  const fetchSimilarBooks = async (bookDescription: string) => {
+    setIsLoadingSimilar(true);
+    try {
+      const response = await fetch(`http://localhost:8000/recommendation_on_bookid`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: bookDescription,
+          top_k: 4 
+        }),
+      });
+      
+      const data = await response.json();
+      setSimilarBooks(data.recommendations);
+    } catch (error) {
+      console.error('Error fetching similar books:', error);
+    } finally {
+      setIsLoadingSimilar(false);
+    }
+  };
+
   useEffect(() => {
     const fetchBook = async () => {
       try {
@@ -57,6 +93,7 @@ export default function BookDetailsPage({ params }: { params: { bookId: string }
           return notFound();
         }
         setBook(bookData);
+        fetchSimilarBooks(bookData.description);
       } catch (error) {
         console.error('Error loading book:', error);
         notFound();
@@ -112,7 +149,7 @@ export default function BookDetailsPage({ params }: { params: { bookId: string }
           <div className="flex justify-center">
             <div className="w-64 h-96 relative rounded-xl shadow-2xl overflow-hidden border-4 border-white hover:border-indigo-100 transition-all duration-300">
               <img
-                src={book.cover || "/book-placeholder.jpg"}
+                src={book.cover}
                 alt={book.title}
                 className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                 onError={(e) => {
@@ -206,6 +243,68 @@ export default function BookDetailsPage({ params }: { params: { bookId: string }
               )}
             </div>
           </div>
+        </div>
+        <div className="mt-12">
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">
+            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              Similar Books
+            </span>
+          </h2>
+          
+          {isLoadingSimilar ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="h-48 bg-gray-200 rounded-lg mb-4"></div>
+                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          ) : similarBooks.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {similarBooks.map((book, index) => (
+                <div key={index} className="group">
+                  <div className="relative overflow-hidden rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
+                    <img
+                      src={book.thumbnail}
+                      alt={book.title}
+                      className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/book-placeholder.jpg";
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
+                      <div>
+                        <p className="text-white font-medium">{book.title}</p>
+                        <p className="text-gray-300 text-sm">{book.author}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <h3 className="font-medium text-gray-900">{book.title}</h3>
+                    <p className="text-sm text-gray-600">{book.author}</p>
+                    {book.rating && (
+                      <div className="flex items-center mt-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`h-4 w-4 ${i < (book.rating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+                          />
+                        ))}
+                        <span className="ml-1 text-xs text-gray-500">
+                          {book.rating?.toFixed(1)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+          ) : (
+            <p className="text-gray-500">No similar books found</p>
+          )}
         </div>
       </div>
     </div>

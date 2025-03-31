@@ -12,28 +12,24 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 load_dotenv()
-# Load Books Data
-BOOKS_CSV = "books_cleaned.csv"  # Ensure the file is in the same directory
+
+BOOKS_CSV = "books_cleaned.csv"  
 books_df = pd.read_csv(BOOKS_CSV)
 
-# Initialize ChromaDB
 DB_PATH = "../chroma_storage"
 chroma_client = chromadb.PersistentClient(path=DB_PATH)
 collection = chroma_client.get_or_create_collection(name="books_collection")
 
-# Google Gemini API Model
 llm = ChatGoogleGenerativeAI(
     temperature=0.5,
     model="gemini-2.0-flash-lite-preview-02-05"
 )
 
-# Define API request schema
 class QueryRequest(BaseModel):
     query: str
     top_k: int = 5
 
 
-# Function to retrieve books from ChromaDB
 def retrieve_semantic_recommendation(query: str, top_k: int = 5) -> pd.DataFrame:
     """Fetch the most relevant books using ChromaDB similarity search"""
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
@@ -103,10 +99,9 @@ def generate_response(query: str):
         "query": query
     })
     
-    # Return both the text response and book metadata including thumbnails
     return {
         "text_response": response.content,
-        "books": retrieved_books  # This includes titles, descriptions, and thumbnails
+        "books": retrieved_books  
     }
 
 import re
@@ -170,3 +165,50 @@ def generate_description(request: QueryRequest):
     return {
         "enhanced": formatted_text
     }
+    
+    
+@app.post("/recommendation_on_bookid")  
+def recommend_books_on_bookid(request: QueryRequest):
+    """Get book recommendations based on a book description"""
+    try:
+        prompt = PromptTemplate.from_template("""
+        Only single query should be given, no other options
+        Convert the following book description into a short, concise query
+        suitable for a book recommendation system. Focus on the key themes, 
+        genres, or elements that would help find similar books. 
+        
+        Original Description:
+        {description}
+        
+        Recommendation Query:
+        """)
+        
+        chain = prompt | llm
+        response = chain.invoke({
+            "description": request.query,
+        })
+        search_query = clean_text(response.content)
+        recommendations = retrieve_semantic_recommendation(search_query, request.top_k)
+        recommended_books = []
+        
+        # Use enumerate to get both index and row
+        for index, (_, row) in enumerate(recommendations.iterrows(), start=1):
+            recommended_books.append({
+                "book_id": index,  # Now using the proper index
+                "title": row["title"],
+                "author": row["authors"] if "authors" in row else "Unknown",
+                "thumbnail": row["thumbnail"],
+                "genres": row["genres"].split("|") if "genres" in row and pd.notna(row["genres"]) else [],
+            })
+        
+        return {
+            "search_query": search_query,
+            "recommendations": recommended_books,
+            "count": len(recommended_books)
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error generating recommendations: {str(e)}"
+        )
