@@ -12,7 +12,7 @@ BookNexus is an advanced AI-driven book recommendation platform that helps users
 
 ✅ **Similar Books Discovery** – Loved a book? Discover more like it! Our AI analyzes themes, writing styles, and genres to suggest books similar to the ones you adore, ensuring you never run out of great reads.  
 
-✅ **Modern UI/UX** – Enjoy a seamless browsing experience with our sleek, responsive, and visually appealing design. From intuitive navigation to smooth animations, every detail is crafted to make your book discovery journey enjoyable.    
+✅ **Modern UI/UX**
 ---
 
 ## VIDEO (Go through the video link to experience it)
